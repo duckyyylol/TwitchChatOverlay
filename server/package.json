@@ -1,0 +1,32 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodemon --exec \"ts-node ./src/index.ts\" --ext ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@twurple/api": "^8.0.3",
+    "@twurple/auth": "^8.0.3",
+    "@twurple/chat": "^8.0.3",
+    "@twurple/eventsub-ws": "^8.0.3",
+    "@types/axios": "^0.9.36",
+    "@types/express": "^5.0.6",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.5.0",
+    "@types/ws": "^8.18.1",
+    "axios": "^1.14.0",
+    "cookie": "^1.1.1",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "fs-extra": "^11.3.4",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/cookie": "^0.6.0"
+  }
+}
