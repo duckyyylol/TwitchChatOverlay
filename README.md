@@ -1,0 +1,1 @@
+<img src="./github/assets/banner_purple.png" />
