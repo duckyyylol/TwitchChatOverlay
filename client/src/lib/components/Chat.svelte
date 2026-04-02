@@ -217,8 +217,8 @@
         let sevenEmoteOffsets = findSevenTvEmotes(built.content);
         let emojisToReplace: { text: string; url: string }[] = [];
         Object.entries({
-            ...message.emoteOffsets,
             ...sevenEmoteOffsets,
+            ...message.emoteOffsets,
         }).forEach(([key, url]) => {
             let nums = key.split(/\-/g);
             let i = parseInt(nums[0]);
