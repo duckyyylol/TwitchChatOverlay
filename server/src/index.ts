@@ -254,12 +254,18 @@ async function initEventSub(token: string, userId: string, broadcasterId: string
 wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
     socketMap.clear();
     if(chatClient) {
-        chatClient.quit();
-        console.log(`Dropped old chat client for new connection`)
+        try {
+
+            chatClient.quit();
+            console.log(`Dropped old chat client for new connection`)
+        } catch(e){console.log("Failed to quit chat client")}
     }
     if(eventsub) {
-        eventsub.stop();
-        console.log(`Dropped old eventsub instance for new connection`)
+        try {
+
+            eventsub.stop();
+            console.log(`Dropped old eventsub instance for new connection`)
+        } catch(e){console.log("Failed to quit eventsub instance")}
     }
 
     const cookies = parseCookie(req.headers.cookie || '')
@@ -278,7 +284,7 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
         if (chatClient && channelName) chatClient.part(
             channelName
         )
-        chatClient.quit();
+        if(chatClient) chatClient.quit();
 
         socketMap.clear()
         socketId = null;
