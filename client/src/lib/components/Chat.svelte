@@ -191,7 +191,7 @@
             author: message.userInfo.display_name,
             color:
                 message.userInfo.color ||
-                `${Math.floor(Math.random() * 16777215).toString(16)}`,
+                `#4400A9`,
             content: message.content,
             badges: [],
             show: true,
