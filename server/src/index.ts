@@ -169,7 +169,6 @@ function broadcastChat(channelName: string, message: ChatMessage) {
 
 const PORT = process.env.PORT || 3000;
 if (!process.env.WSS_PATH) throw new Error("WSS_PATH is not set");
-if (!process.env.APP_URL) throw new Error("APP_URL is not set");
 
 
 const app = express();
