@@ -78,11 +78,16 @@
     }
 
     async function getOverlayConnected(): Promise<boolean> {
-        let res = await (await (fetch(`${PUBLIC_APP_URL}/ws/ping`))).json();
+        let res = await (await fetch(`${PUBLIC_APP_URL}/ws/ping`)).json();
         return res?.is || false;
     }
 
-    let connectionMessage: string = $state("Overlay Connecting...")
+    async function setDimension(dim: "height" | "width", num: number): Promise<boolean> {
+        let res = await (await fetch(`/api/config/set-dimension/${dim[0]}/${num}`, {method: "POST"})).json();
+        return res || false;
+    }
+
+    let connectionMessage: string = $state("Overlay Connecting...");
     let overlayConnected: boolean = $state(false);
     let defaultAppConfig = AppConfig.default_app_config;
     let alive: boolean = $state(true);
@@ -96,7 +101,17 @@
     let usernameInvalid = $state(false);
     let usernameMessage = $state("");
 
+    let ignoreSettingsExpanded = $state(false);
+    let overlaySettingsExpanded = $state(true);
+
+    let overlayHeight = $state(200);
+    let overlayWidth = $state(500);
+
     async function tryToIgnore(username: string) {
+        let alreadyIgnored = ignoredUsers.some(
+            (i) => i.username.toLowerCase() === username.toLowerCase(),
+        );
+
         let user: ApiResponse<TwitchUser | null> = await (
             await fetch(`/api/twitch/users/${usernameToIgnore}`)
         ).json();
@@ -104,9 +119,6 @@
             usernameInvalid = true;
             usernameToIgnore = "";
         } else {
-            let alreadyIgnored = ignoredUsers.some(
-                (i) => i.id === user.data?.id,
-            );
 
             usernameMessage = alreadyIgnored
                 ? `Un-ignoring ${user.data.display_name}...`
@@ -133,7 +145,6 @@
     }
 
     onMount(async () => {
-        
         overlayConnected = await getOverlayConnected();
         await keepAlive();
         appConfig = await getAppConfig();
@@ -144,27 +155,31 @@
         let m = 5;
 
         setInterval(async () => {
-            if(alive) {
+            if (alive) {
                 appConfig = await getAppConfig();
                 ignoredUsers = await getAllIgnoredUsers();
                 overlayConnected = await getOverlayConnected();
 
-                if(!overlayConnected && !connectionMessage.includes("Disconnected") && (i >= m)) {
-                    connectionMessage = "Overlay Disconnected"
+                if (
+                    !overlayConnected &&
+                    !connectionMessage.includes("Disconnected") &&
+                    i >= m
+                ) {
+                    connectionMessage = "Overlay Disconnected";
                     i = 0;
                 }
 
-                if(overlayConnected) {
+                if (overlayConnected) {
                     // connectionMessage = "Overlay Connected!"
                     i = 0;
                 }
-                i++
+                i++;
             }
         }, 1e3);
 
         window.addEventListener("keypress", async (ev) => {
-            ev.preventDefault();
             if (ev.key === "Enter" && usernameToIgnore !== "") {
+                // ev.preventDefault();
                 await tryToIgnore(usernameToIgnore);
             }
         });
@@ -200,213 +215,427 @@
 </script>
 
 {#if alive}
-{#if !overlayConnected}
-<Column widthPx="fit" heightPx="fit" alignItems="flex-start" justifyContent="flex-start" marginBottomPx={20} textWrap={true} textAlign="left">
-    <Heading size={4} classList={[overlayConnected ? "green" : connectionMessage.includes("Connecting") ? "yellow" : "red"]} weight="bold">{connectionMessage}</Heading>
-    {#if !connectionMessage.includes("Connecting")}
-    <Text>Please refresh the chat overlay, or add it to OBS if you haven't done so yet.</Text>
-    {/if}
-    <Text classList={["yellow", "italic"]}>This message will disappear once the overlay is successfully connected.</Text>
-
-    {#if !connectionMessage.includes("Connecting")}
-
-    <Column widthPx="fit" heightPx="fit" alignItems="flex-start" justifyContent="flex-start" marginBottomPx={20} textWrap={true} textAlign="left">
-        <Heading size={6} classList={["red"]} weight="bold">Not Connecting?</Heading>
-        <Text>This app must be ran inside of a Custom Browser Dock.</Text>
-        <!-- svelte-ignore a11y_invalid_attribute -->
-        <Text>1. Add this page as a dock in OBS (Docks -> Custom Browser Docks -> Add {PUBLIC_APP_URL} <a href="#" onclick={async () => {
-        if(browser) {
-            try {
-                await window.navigator.clipboard.writeText(`${PUBLIC_APP_URL}`)
-                alert("Copied URL to Clipboard")
-            } catch(e: any) {
-                alert(`Failed to copy text.${e?.message ? `\n\nError: ${e?.message}` : ""}`)
-            }
-        }
-    }}>[click to copy]</a>)</Text>
-        <Text>2. Log in with Twitch within the OBS browser dock</Text>
-        <Text>3. Follow the instructions below to add the overlay source if you haven't done so</Text>
-        <Text>4. Refresh the overlay browser source</Text>
-    </Column>
-
-    {/if}
-
-    <HorizontalRule />
-    {#if !connectionMessage.includes("Connecting")}
-
-    <Text classList={["green"]} weight="bold">The Chat Overlay is a Browser Source</Text>
-    <Text>Width: 500</Text>
-    <Text>Height: 210</Text>
-    <Text>URL: <a href="{PUBLIC_APP_URL}/overlay" target="_blank">{PUBLIC_APP_URL}/overlay</a></Text>
-    <Button label="Copy URL to Clipboard" type="primary" onclick={async () => {
-        if(browser) {
-            try {
-                await window.navigator.clipboard.writeText(`${PUBLIC_APP_URL}/overlay`)
-                alert("Copied URL to Clipboard")
-            } catch(e: any) {
-                alert(`Failed to copy text.${e?.message ? `\n\nError: ${e?.message}` : ""}`)
-            }
-        }
-    }} />
-
-<HorizontalRule />
-{/if}
-</Column>
-{:else}
-<Column widthPx="fit" heightPx="fit" alignItems="flex-start" justifyContent="flex-start" marginBottomPx={20} textWrap={true} textAlign="left">
-    <Heading size={6} classList={["green"]} weight="bold">Overlay Connected!</Heading>
-</Column>
-{/if}
-<Row
+    <Column
+        widthPx="fit"
         heightPx="fit"
-        flexWrap={true}
         alignItems="flex-start"
         justifyContent="flex-start"
+        textAlign="left"
+        marginBottomPx={20}
     >
+        <Heading size={3} weight="bold">Connection Status</Heading>
+    </Column>
+    {#if !overlayConnected}
         <Column
+            widthPx="fit"
             heightPx="fit"
             alignItems="flex-start"
             justifyContent="flex-start"
-            widthPx={250}
+            marginBottomPx={20}
             textWrap={true}
             textAlign="left"
         >
-            <Row heightPx="fit" justifyContent="flex-start" alignItems="center">
-                
-                <input
-                    type="checkbox"
-                    name="ignore-commands"
-                    id="ignore-commands"
-                    bind:checked={ignoreCommands}
-                    onclick={async () => {
-                        await toggleIgnoreCommands();
-                    }}
-                />
-                <label for="ignore-commands"
-                    >{ignoreCommands
-                        ? "Ignoring Commands"
-                        : "Ignore Commands?"}</label
-                >
-            </Row>
-            <Text>
-                <Markdown
-                    content={ignoreCommands
-                        ? "Currently ignoring chatbot commands (messages that begin with `!`)"
-                        : "Ignores chatbot commands (messages that begin with `!`)"}
-                />
-            </Text>
-        </Column>
-        <HorizontalRule />
-        <Column
-            heightPx="fit"
-            alignItems="flex-start"
-            widthPx={250}
-            textWrap={true}
-            textAlign="left"
-        >
-            <Row heightPx="fit" justifyContent="flex-start" alignItems="center">
-                <input
-                    type="text"
-                    name="ignore-user"
-                    id="ignore-user"
-                    bind:value={usernameToIgnore}
-                />
-                <Button
-                    label={usernameInvalid ? "Invalid User" : "Ignore"}
-                    type={usernameMessage !== ""
-                        ? "primary"
-                        : usernameToIgnore === ""
-                          ? "secondary"
-                          : "success"}
-                    onclick={async () => {
-                        if (usernameToIgnore !== "") {
-                            await tryToIgnore(usernameToIgnore);
-                        }
-                    }}
-                />
-            </Row>
-            <Text>
+            <Heading
+                size={4}
+                classList={[
+                    overlayConnected
+                        ? "green"
+                        : connectionMessage.includes("Connecting")
+                          ? "yellow"
+                          : "red",
+                ]}
+                weight="bold">{connectionMessage}</Heading
+            >
+            {#if !connectionMessage.includes("Connecting")}
                 <Text
-                    >{usernameMessage !== ""
-                        ? usernameMessage
-                        : usernameToIgnore === ""
-                          ? "Enter a username to prevent that user's messages from appearing"
-                          : `Prevent ${usernameToIgnore}'s messages from appearing`}</Text
+                    >Please refresh the chat overlay, or add it to OBS if you
+                    haven't done so yet.</Text
                 >
-            </Text>
-            {#if !(ignoredUsers.some(i => AppConfig.known_chatbots.some(c => c.toLowerCase() === i.username.toLowerCase())))}
-                <Button label="Ignore All Common Chatbots ({AppConfig.known_chatbots.length})" type="success" onclick={async () => {
-                    AppConfig.known_chatbots.forEach(async c => {
-                        if(!ignoredUsers.some(i => i.username === c)) {
-                            usernameToIgnore = c;
-                            await tryToIgnore(c)
+            {/if}
+            <Text classList={["yellow", "italic"]}
+                >This message will disappear once the overlay is successfully
+                connected.</Text
+            >
+
+            {#if !connectionMessage.includes("Connecting")}
+            <HorizontalRule />
+                <Column
+                    widthPx="fit"
+                    heightPx="fit"
+                    alignItems="flex-start"
+                    justifyContent="flex-start"
+                    marginBottomPx={20}
+                    textWrap={true}
+                    textAlign="left"
+                >
+                    <Heading size={6} classList={["red"]} weight="bold"
+                        >Not Connecting?</Heading
+                    >
+                    <Text
+                        >This app must be ran inside of a Custom Browser Dock.</Text
+                    >
+                    <!-- svelte-ignore a11y_invalid_attribute -->
+                    <Text
+                        >1. Add this page as a dock in OBS (Docks -> Custom
+                        Browser Docks -> Add {PUBLIC_APP_URL}
+                        <a
+                            href="#"
+                            onclick={async () => {
+                                if (browser) {
+                                    try {
+                                        await window.navigator.clipboard.writeText(
+                                            `${PUBLIC_APP_URL}`,
+                                        );
+                                        alert("Copied URL to Clipboard");
+                                    } catch (e: any) {
+                                        alert(
+                                            `Failed to copy text.${e?.message ? `\n\nError: ${e?.message}` : ""}`,
+                                        );
+                                    }
+                                }
+                            }}>[click to copy]</a
+                        >)</Text
+                    >
+                    <Text
+                        >2. Log in with Twitch within the OBS browser dock</Text
+                    >
+                    <Text
+                        >3. Follow the instructions below to add the overlay
+                        source if you haven't done so</Text
+                    >
+                    <Text>4. Refresh the overlay browser source</Text>
+                </Column>
+            {/if}
+
+            {#if !connectionMessage.includes("Connecting")}
+            <HorizontalRule />
+                <Text classList={["green"]} weight="bold"
+                    >The Chat Overlay is a Browser Source</Text
+                >
+                <Text>Width: 500</Text>
+                <Text>Height: 210</Text>
+                <Text
+                    >URL: <a href="{PUBLIC_APP_URL}/overlay" target="_blank"
+                        >{PUBLIC_APP_URL}/overlay</a
+                    ></Text
+                >
+                <Button
+                    label="Copy URL to Clipboard"
+                    type="primary"
+                    onclick={async () => {
+                        if (browser) {
+                            try {
+                                await window.navigator.clipboard.writeText(
+                                    `${PUBLIC_APP_URL}/overlay`,
+                                );
+                                alert("Copied URL to Clipboard");
+                            } catch (e: any) {
+                                alert(
+                                    `Failed to copy text.${e?.message ? `\n\nError: ${e?.message}` : ""}`,
+                                );
+                            }
                         }
-                    })
-                }} />
+                    }}
+                />
+
+                <HorizontalRule />
             {/if}
         </Column>
-        <HorizontalRule />
-
+    {:else}
         <Column
-            heightPercent={100}
+            widthPx="fit"
+            heightPx="fit"
             alignItems="flex-start"
             justifyContent="flex-start"
-            widthPx={250}
+            marginBottomPx={20}
             textWrap={true}
             textAlign="left"
-            gapEm={0.1}
         >
-            <Heading size={6} weight="bold">
-                Ignored Users {joined} ({ignoredUsers.length})
-            </Heading>
+            <Heading size={6} classList={["green"]} weight="bold"
+                >Overlay Connected!</Heading
+            >
+        </Column>
+    {/if}
+    <HorizontalRule marginBottomPx={20} />
 
-            <ol>
-                {#each ignoredUsers as ignored}
-                    <!-- {#if ignoredUsers.indexOf(ignored) < 4} -->
-                    <li>
-                        <Row
-                            widthPx="fit"
-                            heightPx="fit"
-                            alignItems="flex-start"
-                            justifyContent="flex-start"
-                            textAlign="left"
-                            gapEm={0.33}
-                        >
-                            <!-- svelte-ignore a11y_click_events_have_key_events -->
-                            <!-- svelte-ignore a11y_no_static_element_interactions -->
-                            <span
-                                class="delete-ignored"
-                                onclick={async () => {
-                                    if (ignored && ignored.username && !deleting) {
-                                        deleting = true;
-                                        usernameToIgnore = ignored.username
-                                        tryToIgnore(usernameToIgnore).then(() => {
-                                            deleting = false;
-                                        }).catch(e => {
-                                            deleting = false;
-                                        });
-                                    }
-                                }}
+    <details bind:open={ignoreSettingsExpanded}>
+        <summary
+            style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 0.33em;"
+        >
+            <Symbol
+                name="arrow_{ignoreSettingsExpanded ? 'drop_down' : 'right'}"
+            />
+            <Text
+                >Ignore Settings {ignoreSettingsExpanded
+                    ? "(Hide)"
+                    : "(Show)"}</Text
+            >
+        </summary>
+        <Row
+            heightPx="fit"
+            flexWrap={true}
+            alignItems="flex-start"
+            justifyContent="flex-start"
+            marginTopPx={20}
+        >
+            <Column
+                heightPx="fit"
+                alignItems="flex-start"
+                justifyContent="flex-start"
+                widthPx={250}
+                textWrap={true}
+                textAlign="left"
+            >
+                <Row
+                    heightPx="fit"
+                    justifyContent="flex-start"
+                    alignItems="center"
+                >
+                    <input
+                        type="checkbox"
+                        name="ignore-commands"
+                        id="ignore-commands"
+                        bind:checked={ignoreCommands}
+                        onclick={async () => {
+                            await toggleIgnoreCommands();
+                        }}
+                    />
+                    <label for="ignore-commands"
+                        >{ignoreCommands
+                            ? "Ignoring Commands"
+                            : "Ignore Commands?"}</label
+                    >
+                </Row>
+                <Text>
+                    <Markdown
+                        content={ignoreCommands
+                            ? "Currently ignoring chatbot commands (messages that begin with `!`)"
+                            : "Ignores chatbot commands (messages that begin with `!`)"}
+                    />
+                </Text>
+            </Column>
+            <HorizontalRule />
+            <Column
+                heightPx="fit"
+                alignItems="flex-start"
+                widthPx={250}
+                textWrap={true}
+                textAlign="left"
+            >
+                <Row
+                    heightPx="fit"
+                    justifyContent="flex-start"
+                    alignItems="center"
+                >
+                    <input
+                        name="ignore-user"
+                        id="ignore-user"
+                        type="text"
+                        bind:value={usernameToIgnore}
+                    />
+                    <Button
+                        label={usernameInvalid ? "Invalid User" : "Ignore"}
+                        type={usernameMessage !== ""
+                            ? "primary"
+                            : usernameToIgnore === ""
+                              ? "secondary"
+                              : "success"}
+                        onclick={async () => {
+                            if (usernameToIgnore !== "") {
+                                await tryToIgnore(usernameToIgnore);
+                            }
+                        }}
+                    />
+                </Row>
+                <Text>
+                    <Text
+                        >{usernameMessage !== ""
+                            ? usernameMessage
+                            : usernameToIgnore === ""
+                              ? "Enter a username to prevent that user's messages from appearing"
+                              : `Prevent ${usernameToIgnore}'s messages from appearing`}</Text
+                    >
+                </Text>
+                {#if !AppConfig.known_chatbots.every( (e) => ignoredUsers.find((i) => i.username.toLowerCase() === e.toLowerCase()), )}
+                    <Button
+                        label="Ignore All Common Chatbots ({AppConfig.known_chatbots.filter(
+                            (c) => !ignoredUsers.find((i) => i.username === c),
+                        ).length})"
+                        type="success"
+                        onclick={async () => {
+                            AppConfig.known_chatbots.forEach(async (c) => {
+                                if (
+                                    !ignoredUsers.some((i) => i.username === c)
+                                ) {
+                                    usernameToIgnore = c;
+                                    await tryToIgnore(c);
+                                }
+                            });
+                        }}
+                    />
+                {/if}
+            </Column>
+            <HorizontalRule />
+
+            <Column
+                heightPercent={100}
+                alignItems="flex-start"
+                justifyContent="flex-start"
+                widthPx={250}
+                textWrap={true}
+                textAlign="left"
+                gapEm={0.1}
+            >
+                <Row widthPx="fit" heightPx="fit">
+                    <Heading size={6} weight="bold">
+                        Ignored Users ({ignoredUsers.length})
+                    </Heading>
+                    {#if ignoredUsers.length > 0}
+                    <Button label="Un-Ignore All" type="danger" onclick={async () => {
+                        ignoredUsers.forEach(async u => {
+                            usernameToIgnore = u.username;
+                            await tryToIgnore(usernameToIgnore)
+                        })
+                    }} />
+                    {/if}
+                </Row>
+
+                <ol>
+                    {#each ignoredUsers as ignored}
+                        <!-- {#if ignoredUsers.indexOf(ignored) < 4} -->
+                        <li>
+                            <Row
+                                widthPx="fit"
+                                heightPx="fit"
+                                alignItems="flex-start"
+                                justifyContent="flex-start"
+                                textAlign="left"
+                                gapEm={0.33}
                             >
-                                <Symbol
-                                    name="delete"
-                                    inheritColor={true}
-                                    sizePx={16}
-                                />
-                            </span>
-                            <Text classList={usernameToIgnore.toLowerCase() === ignored.username.toLowerCase() ? ["strike"] : []}>{ignored.username}</Text>
-                        </Row>
-                    </li>
-                    <!-- {/if} -->
-                {/each}
-                <!-- {#if ignoredUsers.length - 5 > 0}
+                                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                                <span
+                                    class="delete-ignored"
+                                    onclick={async () => {
+                                        if (
+                                            ignored &&
+                                            ignored.username &&
+                                            !deleting
+                                        ) {
+                                            deleting = true;
+                                            usernameToIgnore = ignored.username;
+                                            tryToIgnore(usernameToIgnore)
+                                                .then(() => {
+                                                    deleting = false;
+                                                })
+                                                .catch((e) => {
+                                                    deleting = false;
+                                                });
+                                        }
+                                    }}
+                                >
+                                    <Symbol
+                                        name="delete"
+                                        inheritColor={true}
+                                        sizePx={16}
+                                    />
+                                </span>
+                                <Text
+                                    classList={usernameToIgnore.toLowerCase() ===
+                                    ignored.username.toLowerCase()
+                                        ? ["strike"]
+                                        : []}>{ignored.username}</Text
+                                >
+                            </Row>
+                        </li>
+                        <!-- {/if} -->
+                    {/each}
+                    <!-- {#if ignoredUsers.length - 5 > 0}
                             <Text classList={["yellow", "italic"]} weight="bold"
                                 >{ignoredUsers.length - 4} more not shown...</Text
                             >
                         {/if} -->
-            </ol>
-        </Column>
-    </Row>
+                </ol>
+            </Column>
+        </Row>
+    </details>
+        <details bind:open={overlaySettingsExpanded}>
+        <summary
+            style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 0.33em;"
+        >
+            <Symbol
+                name="arrow_{overlaySettingsExpanded ? 'drop_down' : 'right'}"
+            />
+            <Text
+                >Overlay Settings {overlaySettingsExpanded
+                    ? "(Hide)"
+                    : "(Show)"}</Text
+            >
+        </summary>
+        <Row
+            heightPx="fit"
+            flexWrap={true}
+            alignItems="flex-start"
+            justifyContent="flex-start"
+            marginTopPx={20}
+        >
+            <Column
+                heightPx="fit"
+                alignItems="flex-start"
+                justifyContent="flex-start"
+                widthPx={250}
+                textWrap={true}
+                textAlign="left"
+            >
+
+            <Column
+                heightPx="fit"
+                alignItems="flex-start"
+                justifyContent="flex-start"
+                widthPx={250}
+                textWrap={true}
+                textAlign="left"
+            >
+                <Row
+                    heightPx="fit"
+                    justifyContent="flex-start"
+                    alignItems="center"
+                >
+                    <input
+                        type="number"
+                        name="height"
+                        id="height"
+                        bind:value={() => appConfig.overlay_height, (v) => {
+                            if(v) {
+                                setDimension("height", v);
+                            }
+                            
+                            appConfig.overlay_height = v;
+                        }}
+                    />
+                    <label for="height"
+                        >Overlay Height (Pixels)</label
+                    >
+                </Row>
+                <Row
+                    heightPx="fit"
+                    justifyContent="flex-start"
+                    alignItems="center"
+                >
+                    <Button label="Full Height (1080p)" type="primary" onclick={async () => {
+                        setDimension('height', 1080);
+                        appConfig.overlay_height = 1080;
+                    }} />
+                    <Button label="Full Height (1440p)" type="primary" onclick={async () => {
+                        setDimension('height', 1440);
+                        appConfig.overlay_height = 1440;
+                    }} />
+                </Row>
+            </Column>
+
+            </Column>
+        </Row>
+    </details>
     <!-- <Column heightPx="fit" alignItems="flex-start" marginLeftPx="auto" marginRightPx="auto" widthPercent={70} gapEm={0.66}>
     <Heading size={2} weight="bold">Chat Preview</Heading>
     <Text classList={["italic", joined !== null ? "green" : parted !== null ? "red" : "yellow"]}>{joined !== null ? `#${joined}` : parted !== null ? `Left #${parted}` : "Connecting to chat..."}

@@ -291,7 +291,7 @@
 
         setInterval(async () => {
             await keepAlive();
-        }, 30e3);
+        }, 120e3);
 
         setInterval(async () => {
             appConfig = await getAppConfig();
@@ -309,8 +309,8 @@
         
     });
 
-    let MAX_MESSAGES = (() => backgroundMode)() === "transparent" ? 10 : 30;
-    let MESSAGE_TIMEOUT = 5e3;
+    let MAX_MESSAGES = (() => backgroundMode)() === "transparent" ? 50 : 30;
+    let MESSAGE_TIMEOUT = 10e3;
 
     function postMessage(message: DisplayedMessage): void {
         console.log("NEW MESSAGE", message);

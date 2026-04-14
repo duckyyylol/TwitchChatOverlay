@@ -24,6 +24,8 @@ export interface DBBadge {
 export interface DBAppConfig {
     id: string;
     ignore_commands: boolean;
+    overlay_width: number;
+    overlay_height: number;
 }
 
 // Twitch API Types

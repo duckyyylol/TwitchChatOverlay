@@ -17,7 +17,6 @@ export const AppConfig = {
     "blerp",
     "pretzelrocks",
     "lumiastream",
-    "kappamon",
     "stay_hydrated_bot",
     "botisimo",
     "own3d"

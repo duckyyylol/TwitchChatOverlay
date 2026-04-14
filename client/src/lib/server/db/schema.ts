@@ -45,5 +45,7 @@ export const ignored_users = sqliteTable("ignored_users", {
 
 export const app_config = sqliteTable("app_config", {
 	id: text("id").notNull().primaryKey().$defaultFn(() => crypto.randomUUID()),
-	ignore_commands: integer("ignore_commands", {mode: "boolean"}).notNull().default(true)
+	ignore_commands: integer("ignore_commands", {mode: "boolean"}).notNull().default(true),
+	overlay_height: integer("overlay_height").notNull().default(200),
+	overlay_width: integer("overlay_width").notNull().default(500),
 })
